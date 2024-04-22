@@ -12,6 +12,7 @@ const Card = (props) => {
         <Image
           src={`/images/${icon}-${color}.svg`}
           className="group-hover:scale-90"
+          alt="icon-image"
           width={100}
           height={100}
           style={{ height: "80%", width: "80%" }}

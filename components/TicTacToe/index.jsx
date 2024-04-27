@@ -230,7 +230,7 @@ const TicTacToe = () => {
             className="w-fit bg-tic-blue px-6 py-2 text-white text-xl rounded mt-8"
             onClick={() => {
               setCards([0, 0, 0, 0, 0, 0, 0, 0, 0]);
-              setGameStatus(0);
+              setGameStatus("active");
               setIsDisabled(false);
             }}
           >

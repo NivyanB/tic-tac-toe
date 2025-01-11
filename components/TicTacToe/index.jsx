@@ -1,140 +1,119 @@
 import React, { useState, useEffect } from "react";
 import Image from "next/image";
 import Card from "./Card";
+import {
+  getMinimaxMove,
+  getMediumMove,
+  getRandomMove,
+  isBoardFull,
+  checkWinner,
+} from "tic-tac-bot";
+import Tooltip from "./Tooltip";
 
 const TicTacToe = () => {
-  const [cards, setCards] = useState([0, 0, 0, 0, 0, 0, 0, 0, 0]);
-  const [user, setUser] = useState({ icon: "circle", color: "white", val: 1 });
-  const [comp, setComp] = useState({ icon: "cross", color: "blue", val: 2 });
+  const initialBoard = [
+    [null, null, null],
+    [null, null, null],
+    [null, null, null],
+  ];
+
+  const [board, setBoard] = useState(initialBoard);
+  const [user, setUser] = useState({ icon: "O", color: "white", val: "O" });
+  const [comp, setComp] = useState({ icon: "X", color: "blue", val: "X" });
   const [isDisabled, setIsDisabled] = useState(false);
   const [gameStatus, setGameStatus] = useState("active");
+  const [difficulty, setDifficulty] = useState("easy");
 
   useEffect(() => {
-    if (gameStatus === "active") return;
-    else {
-      setIsDisabled(true);
-    }
+    if (gameStatus !== "active") setIsDisabled(true); // Disable interaction when game is over
   }, [gameStatus]);
 
-  const computerMove = (latestCards) => {
-    const emptyPositions = [];
+  const computerMove = (latestBoard) => {
+    let bestMove;
 
-    latestCards.forEach((value, index) => {
-      if (value === 0) {
-        emptyPositions.push([index]);
-      }
-    });
-
-    // Choose a random empty position
-    const Aindex =
-      emptyPositions[Math.floor(Math.random() * emptyPositions.length)];
-
-    // Update the chosen position to 1
-    latestCards[Aindex] = comp.val;
-    setCards(latestCards);
-    return latestCards;
-  };
-
-  const handleClick = (index) => {
-    if (isDisabled || cards[index] != 0) return;
-    setIsDisabled(true);
-    let latestCards = [...cards];
-    if (cards.flat().includes(0)) {
-      latestCards[index] = user.val;
-      setCards(latestCards);
+    if (difficulty === "random") {
+      bestMove = getRandomMove(latestBoard); // Random move
+    } else if (difficulty === "easy") {
+      bestMove = getMediumMove(latestBoard, comp.val); // Easy AI move
+    } else if (difficulty === "hard") {
+      bestMove = getMinimaxMove(latestBoard, comp.val); // Hard AI move (Minimax)
     }
 
+    const updatedBoard = [...latestBoard];
+    updatedBoard[bestMove?.row][bestMove?.col] = comp.val;
+    setBoard(updatedBoard);
+    return updatedBoard;
+  };
+
+  const handleClick = (row, col) => {
+    if (isDisabled || board[row][col] !== null) return; // Ignore clicks on occupied or disabled cells
+
+    const updatedBoard = board.map((r, i) => (i === row ? [...r] : r)); // Clone the board and make the move
+    updatedBoard[row][col] = user.val; // Update the user's move
+    setBoard(updatedBoard);
+
+    // Check if the game is over after the user's move
+    const gameOver = checkGameOver(updatedBoard);
+    if (gameOver !== "active") {
+      setGameStatus(gameOver);
+      return;
+    }
+
+    // If the game isn't over, let the computer play
     setTimeout(() => {
-      latestCards = computerMove(latestCards);
-      const gameOver = checkGameOver(latestCards);
-      if (gameOver != 0) {
-        setIsDisabled(true);
-        setGameStatus(gameOver);
-      } else {
-        setIsDisabled(false);
-      }
+      const newBoard = computerMove(updatedBoard); // Computer's move
+      const gameOver = checkGameOver(newBoard);
+      setGameStatus(gameOver);
     }, 250);
   };
 
-  const checkGameOver = (latestCards) => {
-    if (checkWinningCondition(user.val, latestCards)) return 1;
-    else if (checkWinningCondition(comp.val, latestCards)) return 2;
-    else if (!latestCards.includes(0)) return 3;
-    return 0;
-  };
-
-  const checkWinningCondition = (val, latestCards) => {
-    // Horizontal wins
-    if (
-      (latestCards[0] === val &&
-        latestCards[1] === val &&
-        latestCards[2] === val) ||
-      (latestCards[3] === val &&
-        latestCards[4] === val &&
-        latestCards[5] === val) ||
-      (latestCards[6] === val &&
-        latestCards[7] === val &&
-        latestCards[8] === val)
-    ) {
-      return true;
+  const checkGameOver = (latestBoard) => {
+    const winner = checkWinner(latestBoard); // Check for a winner
+    if (winner) {
+      return winner === user.val ? "userWin" : "compWin"; // Return winner status
+    } else if (isBoardFull(latestBoard)) {
+      return "draw"; // Return draw status if the board is full
     }
-
-    // Vertical wins
-    if (
-      (latestCards[0] === val &&
-        latestCards[3] === val &&
-        latestCards[6] === val) ||
-      (latestCards[1] === val &&
-        latestCards[4] === val &&
-        latestCards[7] === val) ||
-      (latestCards[2] === val &&
-        latestCards[5] === val &&
-        latestCards[8] === val)
-    ) {
-      return true;
-    }
-
-    // Diagonal wins
-    if (
-      (latestCards[0] === val &&
-        latestCards[4] === val &&
-        latestCards[8] === val) ||
-      (latestCards[2] === val &&
-        latestCards[4] === val &&
-        latestCards[6] === val)
-    ) {
-      return true;
-    }
-
-    return false;
+    return "active"; // Game still active
   };
 
   return (
     <>
-      <p className="text-3xl font-bold text-tic-light-gray bg-black rounded-xl px-6 py-2 mb-10">
-        {gameStatus === 1
-          ? "You Won"
-          : gameStatus === 2
+      <p
+        className={
+          "text-3xl font-bold text-tic-light-gray bg-black rounded-xl px-6 py-2 mb-10 transition-opacity duration-200 ease-in " +
+          (gameStatus !== "active" ? "opacity-100" : "opacity-0")
+        }
+      >
+        {gameStatus === "userWin"
+          ? "You Won!"
+          : gameStatus === "compWin"
           ? "You Lost"
-          : gameStatus === 3
-          ? "Draw"
+          : gameStatus === "draw"
+          ? "It's a Draw!"
           : ""}
       </p>
 
       <div className="flex flex-row items-center justify-center gap-20 flex-wrap-reverse">
         <div className="relative grid grid-cols-3 gap-4 bg-tic-black p-5 rounded-xl flex-shrink-0">
-          {cards.map((card, index) => (
-            <Card
-              key={index}
-              icon={card === 0 ? "" : card === user.val ? user.icon : comp.icon}
-              color={
-                card === 0 ? "" : card === user.val ? user.color : comp.color
-              }
-              handleClick={() => {
-                handleClick(index);
-              }}
-            />
-          ))}
+          {board.map((row, rowIndex) =>
+            row.map((cell, colIndex) => (
+              <Card
+                key={`${rowIndex}-${colIndex}`}
+                icon={
+                  cell === null ? "" : cell === user.val ? user.icon : comp.icon
+                }
+                color={
+                  cell === null
+                    ? ""
+                    : cell === user.val
+                    ? user.color
+                    : comp.color
+                }
+                handleClick={() => handleClick(rowIndex, colIndex)}
+              />
+            ))
+          )}
         </div>
 
         <div className="flex flex-col flex-shrink-0">
@@ -153,17 +132,17 @@ const TicTacToe = () => {
                 <div
                   className="flex bg-tic-black rounded-md p-3 border border-tic-light-gray cursor-pointer"
                   onClick={() => {
-                    setUser({ ...user, icon: "circle" });
-                    setComp({ ...comp, icon: "cross" });
+                    setUser({ ...user, icon: "O", val: "O" });
+                    setComp({ ...comp, icon: "X", val: "X" });
                   }}
                 >
                   <Image
                     src={
-                      user.icon === "cross"
+                      user.icon === "X"
                         ? "/images/circle-gray.svg"
                         : "/images/circle-white.svg"
                     }
-                    alt="cross-icon"
+                    alt="circle-icon"
                     width={40}
                     height={40}
                   />
@@ -171,24 +150,26 @@ const TicTacToe = () => {
                 <div
                   className="flex bg-tic-black rounded-md p-3 border border-tic-light-gray cursor-pointer"
                   onClick={() => {
-                    setUser({ ...user, icon: "cross" });
-                    setComp({ ...comp, icon: "circle" });
+                    setUser({ ...user, icon: "X", val: "X" });
+                    setComp({ ...comp, icon: "O", val: "O" });
                   }}
                 >
                   <Image
                     src={
-                      user.icon === "circle"
+                      user.icon === "O"
                         ? "/images/cross-gray.svg"
                         : "/images/cross-white.svg"
                     }
-                    alt="circle-icon"
+                    alt="cross-icon"
                     width={40}
                     height={40}
                   />
                 </div>
               </div>
             </div>
+
             <div className="border-l-2 border-tic-light-gray"></div>
+
             <div className="flex flex-col">
               <p className="text-tic-light-gray text-lg font-bold mb-3">
                 Change Color
@@ -226,10 +207,55 @@ const TicTacToe = () => {
               </div>
             </div>
           </div>
+
+          <div className="flex flex-col mt-8">
+            <p className="text-tic-light-gray text-lg font-bold mb-3">
+              Select Difficulty
+            </p>
+            <div className="flex gap-3 text-tic-light-gray">
+              <Tooltip text="Bot will make random moves.">
+                <div
+                  className={`flex bg-tic-black rounded-md p-3 border cursor-pointer ${
+                    difficulty === "random"
+                      ? "border-white text-white"
+                      : "border-tic-gray"
+                  }`}
+                  onClick={() => setDifficulty("random")}
+                >
+                  <p>Random</p>
+                </div>
+              </Tooltip>
+              <Tooltip text="Bot will only block winning moves.">
+                <div
+                  className={`flex bg-tic-black rounded-md p-3 border cursor-pointer ${
+                    difficulty === "easy"
+                      ? "border-white text-white"
+                      : "border-tic-gray"
+                  }`}
+                  onClick={() => setDifficulty("easy")}
+                >
+                  <p>Easy</p>
+                </div>
+              </Tooltip>
+              <Tooltip text="Bot uses a minimax algorithm to make optimal moves.">
+                <div
+                  className={`flex bg-tic-black rounded-md p-3 border cursor-pointer ${
+                    difficulty === "hard"
+                      ? "border-white text-white"
+                      : "border-tic-gray"
+                  }`}
+                  onClick={() => setDifficulty("hard")}
+                >
+                  <p>Hard</p>
+                </div>
+              </Tooltip>
+            </div>
+          </div>
+
           <button
             className="w-fit bg-tic-blue px-6 py-2 text-white text-xl rounded mt-8"
             onClick={() => {
-              setCards([0, 0, 0, 0, 0, 0, 0, 0, 0]);
+              setBoard(initialBoard);
               setGameStatus("active");
               setIsDisabled(false);
             }}
